@@ -6,6 +6,7 @@ mod config;
 mod daemon;
 mod dash;
 mod db;
+mod demo;
 mod init;
 mod ipc;
 mod logs;
@@ -46,7 +47,29 @@ enum Cmd {
         text: Vec<String>,
     },
     /// Live dashboard in the terminal
-    Dash,
+    Dash {
+        /// Render one frame to an SVG file instead (e.g. for the README)
+        #[arg(long)]
+        svg: Option<PathBuf>,
+        /// Size of the SVG frame, in terminal cells
+        #[arg(long, default_value = "132x40")]
+        size: String,
+    },
+    /// Run a simulated company (no Claude subscription needed) and open the dashboard
+    Demo {
+        /// Company directory (default: <tmp>/hive-demo, reused when it exists)
+        #[arg(long)]
+        dir: Option<PathBuf>,
+        /// Keep the daemon in the foreground instead of opening the dashboard
+        #[arg(long)]
+        no_dash: bool,
+    },
+    /// Simulated agent used by the demo (internal)
+    #[command(hide = true)]
+    DemoAgent {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
     /// Agents state (available / busy / queued)
     Status,
     /// Tree of the open tasks
@@ -198,7 +221,16 @@ fn real_main() -> Result<()> {
             let company = Company::load(&Company::find()?)?;
             return tokio::runtime::Runtime::new()?.block_on(daemon::run(company));
         }
-        Cmd::Dash => return dash::run(socket_path(&Company::find()?)),
+        Cmd::Dash { svg: None, .. } => return dash::run(socket_path(&Company::find()?)),
+        Cmd::Dash { svg: Some(path), size } => {
+            let (w, h) = size
+                .split_once('x')
+                .and_then(|(w, h)| Some((w.parse().ok()?, h.parse().ok()?)))
+                .ok_or_else(|| anyhow::anyhow!("--size expects WIDTHxHEIGHT, e.g. 132x40"))?;
+            return dash::render_svg(socket_path(&Company::find()?), &path, w, h);
+        }
+        Cmd::Demo { dir, no_dash } => return demo::run(dir, !no_dash),
+        Cmd::DemoAgent { args } => return demo::agent(args),
         Cmd::Logs { target, follow, raw } => return logs::show(&Company::find()?, &target, follow, raw),
         Cmd::Agents => {
             let c = Company::load(&Company::find()?)?;

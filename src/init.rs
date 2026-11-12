@@ -103,6 +103,16 @@ marketing/ folder of the working directory and give their paths in your result.
 "#;
 
 pub fn run(dir: &Path) -> Result<()> {
+    run_quiet(dir)?;
+    println!(
+        "Company created in {}\n\n  1. edit hive.toml (name, mission) and agents/*.toml\n  2. hive daemon            # in a dedicated terminal\n  3. hive task \"…\"          # or hive task --to cto \"…\"",
+        dir.display()
+    );
+    Ok(())
+}
+
+/// Writes the company files without printing anything.
+pub fn run_quiet(dir: &Path) -> Result<()> {
     if dir.join("hive.toml").exists() {
         bail!("{} already contains a hive.toml", dir.display());
     }
@@ -113,9 +123,5 @@ pub fn run(dir: &Path) -> Result<()> {
         std::fs::write(dir.join("agents").join(format!("{name}.toml")), body)?;
     }
     std::fs::write(dir.join(".gitignore"), ".hive/\n")?;
-    println!(
-        "Company created in {}\n\n  1. edit hive.toml (name, mission) and agents/*.toml\n  2. hive daemon            # in a dedicated terminal\n  3. hive task \"…\"          # or hive task --to cto \"…\"",
-        dir.display()
-    );
     Ok(())
 }

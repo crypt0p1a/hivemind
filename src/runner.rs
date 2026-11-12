@@ -70,7 +70,14 @@ async fn execute(
     let mut allow = eff.allow.clone();
     allow.push("mcp__hive".into());
 
-    let mut cmd = Command::new(&app.company.cfg.claude_bin);
+    // Demo mode: the agents are simulated by `hive demo-agent` (no Claude subscription needed).
+    let mut cmd = if app.company.cfg.claude_bin == crate::demo::DEMO_BIN {
+        let mut c = Command::new(&app.exe);
+        c.arg("demo-agent");
+        c
+    } else {
+        Command::new(&app.company.cfg.claude_bin)
+    };
     cmd.arg("-p")
         .args(["--output-format", "stream-json", "--verbose"])
         .arg("--append-system-prompt")

@@ -100,19 +100,7 @@ struct Dash {
 
 pub fn run(socket: PathBuf) -> Result<()> {
     let mut terminal = ratatui::init();
-    let mut dash = Dash {
-        socket,
-        snap: Snap::default(),
-        error: None,
-        rows: Vec::new(),
-        list: ListState::default(),
-        detail: String::new(),
-        scroll: 0,
-        mode: Mode::Normal,
-        flash: None,
-        show_closed: true,
-        dirty: true,
-    };
+    let mut dash = Dash::new(socket);
     let res = dash.event_loop(&mut terminal);
     ratatui::restore();
     res
@@ -133,6 +121,8 @@ fn status_color(s: &str) -> Color {
 fn state_color(s: &str) -> Color {
     if s.starts_with("busy") {
         Color::Yellow
+    } else if s.starts_with("waiting on") {
+        Color::Cyan
     } else if s.starts_with("paused") || s.starts_with("waiting") {
         Color::Red
     } else if s.starts_with("queued") {
@@ -153,6 +143,22 @@ fn ratio_color(r: f64) -> Color {
 }
 
 impl Dash {
+    fn new(socket: PathBuf) -> Dash {
+        Dash {
+            socket,
+            snap: Snap::default(),
+            error: None,
+            rows: Vec::new(),
+            list: ListState::default(),
+            detail: String::new(),
+            scroll: 0,
+            mode: Mode::Normal,
+            flash: None,
+            show_closed: true,
+            dirty: true,
+        }
+    }
+
     fn call(&self, req: &Request) -> Result<String, String> {
         match ipc::call(&self.socket, req) {
             Ok(r) if r.ok => Ok(r.text),
@@ -435,7 +441,7 @@ impl Dash {
             .collect();
         let table = Table::new(
             rows,
-            [Constraint::Length(11), Constraint::Length(16), Constraint::Length(24), Constraint::Min(5)],
+            [Constraint::Length(11), Constraint::Length(18), Constraint::Length(21), Constraint::Min(5)],
         )
         .header(Row::new(vec!["agent", "role", "state", "note"]).style(Style::new().fg(Color::DarkGray)))
         .block(Block::bordered().title(" Agents "));
@@ -566,6 +572,100 @@ impl Dash {
         };
         f.render_widget(line, footer);
     }
+}
+
+// ---------------------------------------------------------------- SVG export
+
+/// Renders one frame of the dashboard into an SVG file (used for the README screenshot).
+pub fn render_svg(socket: PathBuf, path: &std::path::Path, width: u16, height: u16) -> Result<()> {
+    let mut dash = Dash::new(socket);
+    dash.refresh();
+    if let Some(e) = &dash.error {
+        anyhow::bail!("{e}");
+    }
+    let mut term = ratatui::Terminal::new(ratatui::backend::TestBackend::new(width, height))?;
+    term.draw(|f| dash.draw(f))?;
+    std::fs::write(path, buffer_to_svg(term.backend().buffer()))?;
+    println!("{} ({width}x{height})", path.display());
+    Ok(())
+}
+
+fn hex(c: Color, default: &str) -> String {
+    match c {
+        Color::Reset => default.to_string(),
+        Color::Black => "#0d1117".into(),
+        Color::Red | Color::LightRed => "#ff7b72".into(),
+        Color::Green | Color::LightGreen => "#3fb950".into(),
+        Color::Yellow | Color::LightYellow => "#d29922".into(),
+        Color::Blue | Color::LightBlue => "#58a6ff".into(),
+        Color::Magenta | Color::LightMagenta => "#bc8cff".into(),
+        Color::Cyan | Color::LightCyan => "#39c5cf".into(),
+        Color::Gray => "#b1bac4".into(),
+        Color::DarkGray => "#6e7681".into(),
+        Color::White => "#ffffff".into(),
+        Color::Rgb(r, g, b) => format!("#{r:02x}{g:02x}{b:02x}"),
+        Color::Indexed(_) => "#b1bac4".into(),
+    }
+}
+
+fn xml(s: &str) -> String {
+    s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;")
+}
+
+fn buffer_to_svg(buf: &ratatui::buffer::Buffer) -> String {
+    use unicode_width::UnicodeWidthStr;
+    const CW: f64 = 8.4; // cell width
+    const CH: f64 = 19.0; // cell height
+    const PAD: f64 = 18.0;
+    const BAR: f64 = 30.0; // window title bar
+    const BG: &str = "#0d1117";
+    const FG: &str = "#e6edf3";
+    let (w, h) = (buf.area.width as usize, buf.area.height as usize);
+    let (sw, sh) = (w as f64 * CW + 2.0 * PAD, h as f64 * CH + 2.0 * PAD + BAR);
+    let mut bg = String::new();
+    let mut fg = String::new();
+    for y in 0..h {
+        let top = BAR + PAD + y as f64 * CH;
+        let mut x = 0;
+        while x < w {
+            let cell = &buf[(x as u16, y as u16)];
+            let reversed = cell.modifier.contains(Modifier::REVERSED);
+            let (cfg, cbg) = if reversed { (cell.bg, cell.fg) } else { (cell.fg, cell.bg) };
+            let back = if reversed && cbg == Color::Reset { FG.to_string() } else { hex(cbg, "") };
+            let front = if reversed && cfg == Color::Reset { BG.to_string() } else { hex(cfg, FG) };
+            let bold = cell.modifier.contains(Modifier::BOLD);
+            let sym = cell.symbol();
+            let wide = sym.width() > 1;
+            let span = if wide { 2 } else { 1 };
+            let left = PAD + x as f64 * CW;
+            if !back.is_empty() {
+                bg += &format!(
+                    "<rect x=\"{left:.1}\" y=\"{top:.1}\" width=\"{:.1}\" height=\"{CH}\" fill=\"{back}\"/>",
+                    CW * span as f64 + 0.3
+                );
+            }
+            if !sym.trim().is_empty() {
+                fg += &format!(
+                    "<text x=\"{left:.1}\" y=\"{:.1}\" fill=\"{front}\"{}>{}</text>",
+                    top + CH * 0.75,
+                    if bold { " font-weight=\"bold\"" } else { "" },
+                    xml(sym)
+                );
+            }
+            x += span;
+        }
+    }
+    format!(
+        "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{sw:.0}\" height=\"{sh:.0}\" viewBox=\"0 0 {sw:.0} {sh:.0}\">\
+<rect width=\"100%\" height=\"100%\" rx=\"10\" fill=\"{BG}\"/>\
+<rect width=\"100%\" height=\"{BAR}\" rx=\"10\" fill=\"#161b22\"/><rect y=\"20\" width=\"100%\" height=\"10\" fill=\"#161b22\"/>\
+<circle cx=\"20\" cy=\"15\" r=\"6\" fill=\"#ff5f57\"/><circle cx=\"40\" cy=\"15\" r=\"6\" fill=\"#febc2e\"/>\
+<circle cx=\"60\" cy=\"15\" r=\"6\" fill=\"#28c840\"/>\
+<text x=\"{:.0}\" y=\"20\" fill=\"#8b949e\" font-size=\"13\" text-anchor=\"middle\">hive dash</text>\
+<g>{bg}</g><g font-family=\"ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace\" \
+font-size=\"14\" xml:space=\"preserve\">{fg}</g></svg>\n",
+        sw / 2.0
+    )
 }
 
 #[cfg(test)]

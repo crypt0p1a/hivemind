@@ -750,6 +750,7 @@ dependencies = [
  "tokio",
  "tokio-tungstenite",
  "toml",
+ "unicode-width",
 ]
 
 [[package]]
