@@ -15,10 +15,6 @@ pub fn trunc(s: &str, n: usize) -> String {
 
 /// Title of a free-form task text: its first non-empty line, shortened.
 pub fn title_of(text: &str) -> String {
-    let first = text
-        .lines()
-        .map(str::trim)
-        .find(|l| !l.is_empty())
-        .unwrap_or("(untitled)");
+    let first = text.lines().map(str::trim).find(|l| !l.is_empty()).unwrap_or("(untitled)");
     trunc(first, 80)
 }

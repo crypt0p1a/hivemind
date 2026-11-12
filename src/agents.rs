@@ -109,23 +109,13 @@ pub fn remove(app: &App, name: &str) -> Result<String> {
     if app.company.cfg.default_agent == name {
         bail!("{name} is the default agent (default_agent in hive.toml)");
     }
-    let subordinates: Vec<String> = app
-        .company
-        .agents()
-        .into_iter()
-        .filter(|x| x.reports_to.as_deref() == Some(name))
-        .map(|x| x.name)
-        .collect();
+    let subordinates: Vec<String> =
+        app.company.agents().into_iter().filter(|x| x.reports_to.as_deref() == Some(name)).map(|x| x.name).collect();
     if !subordinates.is_empty() {
         bail!("{} report to {name}: change their reports_to first", subordinates.join(", "));
     }
-    let open: Vec<String> = app
-        .db
-        .tasks(false)?
-        .into_iter()
-        .filter(|t| t.assignee == name)
-        .map(|t| format!("#{}", t.id))
-        .collect();
+    let open: Vec<String> =
+        app.db.tasks(false)?.into_iter().filter(|t| t.assignee == name).map(|t| format!("#{}", t.id)).collect();
     if !open.is_empty() {
         bail!("{name} has open tasks ({}): finish or cancel them first", open.join(", "));
     }
@@ -155,8 +145,16 @@ pub fn reload(app: &App) -> Result<String> {
         "{} agent(s): {}{}{}",
         names.len(),
         names.join(", "),
-        if added.is_empty() { String::new() } else { format!(" · added: {}", added.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(", ")) },
-        if removed.is_empty() { String::new() } else { format!(" · removed: {}", removed.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(", ")) }
+        if added.is_empty() {
+            String::new()
+        } else {
+            format!(" · added: {}", added.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(", "))
+        },
+        if removed.is_empty() {
+            String::new()
+        } else {
+            format!(" · removed: {}", removed.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(", "))
+        }
     ))
 }
 
@@ -236,7 +234,8 @@ fn csv(v: &str) -> Vec<String> {
     v.split(',').map(str::trim).filter(|x| !x.is_empty()).map(String::from).collect()
 }
 
-pub const ADD_USAGE: &str = "agent add <name> title=\"…\" [reports_to=cto] [capabilities=a,b] [profiles=dev,web] [model=sonnet] [workdir=…]
+pub const ADD_USAGE: &str =
+    "agent add <name> title=\"…\" [reports_to=cto] [capabilities=a,b] [profiles=dev,web] [model=sonnet] [workdir=…]
 <role prompt on the following lines>";
 
 /// Slack: first line `agent add <name> key=value…`, the following lines are the role prompt.

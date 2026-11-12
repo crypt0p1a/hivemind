@@ -172,9 +172,8 @@ fn row_task(r: &Row) -> rusqlite::Result<Task> {
 }
 
 fn pending_in(c: &Connection, agent: &str, task_id: i64) -> rusqlite::Result<Vec<InboxItem>> {
-    let mut st = c.prepare(
-        "SELECT kind, body FROM inbox WHERE agent = ?1 AND task_id = ?2 AND run_id IS NULL ORDER BY id",
-    )?;
+    let mut st =
+        c.prepare("SELECT kind, body FROM inbox WHERE agent = ?1 AND task_id = ?2 AND run_id IS NULL ORDER BY id")?;
     let rows = st
         .query_map(params![agent, task_id], |r| Ok(InboxItem { kind: r.get(0)?, body: r.get(1)? }))?
         .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -222,9 +221,7 @@ impl Db {
 
     pub fn task(&self, id: i64) -> Result<Option<Task>> {
         let c = self.c();
-        let t = c
-            .query_row(&format!("SELECT {TASK_COLS} FROM tasks WHERE id = ?1"), [id], row_task)
-            .optional()?;
+        let t = c.query_row(&format!("SELECT {TASK_COLS} FROM tasks WHERE id = ?1"), [id], row_task).optional()?;
         Ok(t)
     }
 
@@ -273,10 +270,9 @@ impl Db {
                 "UPDATE tasks SET status = ?1, result = ?2, updated_at = ?3 WHERE id = ?4",
                 params![status, r, now(), id],
             )?,
-            None => c.execute(
-                "UPDATE tasks SET status = ?1, updated_at = ?2 WHERE id = ?3",
-                params![status, now(), id],
-            )?,
+            None => {
+                c.execute("UPDATE tasks SET status = ?1, updated_at = ?2 WHERE id = ?3", params![status, now(), id])?
+            }
         };
         Ok(())
     }
@@ -297,9 +293,7 @@ impl Db {
         let mut st = c.prepare(
             "SELECT agent, task_id FROM inbox WHERE run_id IS NULL GROUP BY agent, task_id ORDER BY MIN(id)",
         )?;
-        let rows = st
-            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
-            .collect::<rusqlite::Result<Vec<_>>>()?;
+        let rows = st.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<rusqlite::Result<Vec<_>>>()?;
         Ok(rows)
     }
 
@@ -320,20 +314,16 @@ impl Db {
     }
 
     pub fn drop_inbox(&self, task_id: i64) -> Result<()> {
-        self.c()
-            .execute("UPDATE inbox SET run_id = -1 WHERE task_id = ?1 AND run_id IS NULL", [task_id])?;
+        self.c().execute("UPDATE inbox SET run_id = -1 WHERE task_id = ?1 AND run_id IS NULL", [task_id])?;
         Ok(())
     }
 
     /// agent -> number of tasks with pending messages
     pub fn pending_counts(&self) -> Result<HashMap<String, i64>> {
         let c = self.c();
-        let mut st = c.prepare(
-            "SELECT agent, COUNT(DISTINCT task_id) FROM inbox WHERE run_id IS NULL GROUP BY agent",
-        )?;
-        let rows = st
-            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
-            .collect::<rusqlite::Result<HashMap<_, _>>>()?;
+        let mut st =
+            c.prepare("SELECT agent, COUNT(DISTINCT task_id) FROM inbox WHERE run_id IS NULL GROUP BY agent")?;
+        let rows = st.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<rusqlite::Result<HashMap<_, _>>>()?;
         Ok(rows)
     }
 
@@ -402,13 +392,8 @@ impl Db {
     pub fn recover_stale_runs(&self) -> Result<Vec<(String, i64)>> {
         let c = self.c();
         let mut st = c.prepare("SELECT agent, task_id FROM runs WHERE status = 'running'")?;
-        let rows = st
-            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
-            .collect::<rusqlite::Result<Vec<_>>>()?;
-        c.execute(
-            "UPDATE runs SET status = 'aborted', ended_at = ?1 WHERE status = 'running'",
-            [now()],
-        )?;
+        let rows = st.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<rusqlite::Result<Vec<_>>>()?;
+        c.execute("UPDATE runs SET status = 'aborted', ended_at = ?1 WHERE status = 'running'", [now()])?;
         Ok(rows)
     }
 
@@ -436,25 +421,18 @@ impl Db {
 
     pub fn thread_of(&self, task_id: i64) -> Result<Option<String>> {
         let c = self.c();
-        let ts = c
-            .query_row("SELECT ts FROM slack_threads WHERE task_id = ?1", [task_id], |r| r.get(0))
-            .optional()?;
+        let ts = c.query_row("SELECT ts FROM slack_threads WHERE task_id = ?1", [task_id], |r| r.get(0)).optional()?;
         Ok(ts)
     }
 
     pub fn set_thread(&self, task_id: i64, ts: &str) -> Result<()> {
-        self.c().execute(
-            "INSERT OR REPLACE INTO slack_threads (task_id, ts) VALUES (?1, ?2)",
-            params![task_id, ts],
-        )?;
+        self.c().execute("INSERT OR REPLACE INTO slack_threads (task_id, ts) VALUES (?1, ?2)", params![task_id, ts])?;
         Ok(())
     }
 
     pub fn task_by_thread(&self, ts: &str) -> Result<Option<i64>> {
         let c = self.c();
-        let id = c
-            .query_row("SELECT task_id FROM slack_threads WHERE ts = ?1", [ts], |r| r.get(0))
-            .optional()?;
+        let id = c.query_row("SELECT task_id FROM slack_threads WHERE ts = ?1", [ts], |r| r.get(0)).optional()?;
         Ok(id)
     }
 
@@ -539,11 +517,7 @@ impl Db {
     pub fn user(&self, slack_id: &str) -> Result<Option<User>> {
         let c = self.c();
         let u = c
-            .query_row(
-                "SELECT slack_id, name, role, agents FROM users WHERE slack_id = ?1",
-                [slack_id],
-                Self::row_user,
-            )
+            .query_row("SELECT slack_id, name, role, agents FROM users WHERE slack_id = ?1", [slack_id], Self::row_user)
             .optional()?;
         Ok(u.map(Self::to_user))
     }
@@ -589,8 +563,10 @@ impl Db {
 
     pub fn rules(&self, scope: &str, name: &str, kind: &str) -> Result<Vec<String>> {
         let c = self.c();
-        let mut st = c.prepare("SELECT rule FROM tool_rules WHERE scope = ?1 AND name = ?2 AND kind = ?3 ORDER BY rule")?;
-        let rows = st.query_map(params![scope, name, kind], |r| r.get(0))?.collect::<rusqlite::Result<Vec<String>>>()?;
+        let mut st =
+            c.prepare("SELECT rule FROM tool_rules WHERE scope = ?1 AND name = ?2 AND kind = ?3 ORDER BY rule")?;
+        let rows =
+            st.query_map(params![scope, name, kind], |r| r.get(0))?.collect::<rusqlite::Result<Vec<String>>>()?;
         Ok(rows)
     }
 

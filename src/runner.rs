@@ -2,9 +2,9 @@
 
 use crate::config::{log_path, AgentConfig, Company};
 use crate::daemon::{complete, fail, App, RESUME_MSG};
-use crate::{approval, collab, notify, tools, usage};
 use crate::db::{InboxItem, Task};
 use crate::util::trunc;
+use crate::{approval, collab, notify, tools, usage};
 use anyhow::{Context, Result};
 use serde_json::{json, Value};
 use std::process::Stdio;
@@ -111,9 +111,7 @@ async fn execute(
         .stderr(Stdio::piped())
         .kill_on_drop(true);
 
-    let mut child = cmd
-        .spawn()
-        .with_context(|| format!("starting '{}'", app.company.cfg.claude_bin))?;
+    let mut child = cmd.spawn().with_context(|| format!("starting '{}'", app.company.cfg.claude_bin))?;
 
     // Prompt on stdin: no argv length limit, no leading-dash ambiguity.
     {
@@ -177,7 +175,13 @@ async fn execute(
     Ok(out)
 }
 
-async fn finish(app: &Arc<App>, run_id: i64, agent: &AgentConfig, task_id: i64, outcome: Result<Outcome>) -> Result<()> {
+async fn finish(
+    app: &Arc<App>,
+    run_id: i64,
+    agent: &AgentConfig,
+    task_id: i64,
+    outcome: Result<Outcome>,
+) -> Result<()> {
     let o = match outcome {
         Ok(o) => o,
         Err(e) => {
@@ -224,10 +228,7 @@ async fn finish(app: &Arc<App>, run_id: i64, agent: &AgentConfig, task_id: i64, 
             notify::thread_event(app, task_id, &msg).await;
             return Ok(());
         }
-        let detail = o
-            .result
-            .filter(|r| !r.trim().is_empty())
-            .unwrap_or_else(|| trunc(o.stderr.trim(), 1500));
+        let detail = o.result.filter(|r| !r.trim().is_empty()).unwrap_or_else(|| trunc(o.stderr.trim(), 1500));
         return fail(app, task_id, &format!("run {run_id} of {} failed: {detail}", agent.name)).await;
     }
     if app.db.open_children(task_id)? > 0 {

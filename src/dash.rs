@@ -205,9 +205,11 @@ impl Dash {
             walk(r, 0, &kids, &mut rows);
         }
         self.rows = rows;
-        let idx = keep
-            .and_then(|id| self.rows.iter().position(|(_, t)| t.id == id))
-            .or(if self.rows.is_empty() { None } else { Some(0) });
+        let idx = keep.and_then(|id| self.rows.iter().position(|(_, t)| t.id == id)).or(if self.rows.is_empty() {
+            None
+        } else {
+            Some(0)
+        });
         self.list.select(idx);
         self.detail = match self.selected_id() {
             Some(id) => self.call(&Request::Show { id }).unwrap_or_else(|e| e),
@@ -366,8 +368,7 @@ impl Dash {
             Constraint::Length(1),
         ])
         .areas(f.area());
-        let [left, right] =
-            Layout::horizontal([Constraint::Percentage(48), Constraint::Percentage(52)]).areas(body);
+        let [left, right] = Layout::horizontal([Constraint::Percentage(48), Constraint::Percentage(52)]).areas(body);
         let [agents_a, usage_a, tasks_a] = Layout::vertical([
             Constraint::Length(s.agents.len() as u16 + 3),
             Constraint::Length(usage_h),
@@ -392,7 +393,8 @@ impl Dash {
             .take(3)
             .enumerate()
             .map(|(i, a)| {
-                let keys = if i == 0 { format!("  [y] once · [Y] always ({}) · [x] deny", a.rule) } else { String::new() };
+                let keys =
+                    if i == 0 { format!("  [y] once · [Y] always ({}) · [x] deny", a.rule) } else { String::new() };
                 Line::from(vec![
                     Span::styled(" 🔐 ", Style::new().bg(Color::Magenta)),
                     Span::styled(
@@ -409,7 +411,10 @@ impl Dash {
                         format!(" hire #{}: {} proposes {}", p.id, p.proposed_by, p.name.as_deref().unwrap_or("?")),
                         Style::new().fg(Color::Blue).add_modifier(Modifier::BOLD),
                     ),
-                    Span::styled(format!("  → Slack or hive proposal accept|reject {}", p.id), Style::new().fg(Color::DarkGray)),
+                    Span::styled(
+                        format!("  → Slack or hive proposal accept|reject {}", p.id),
+                        Style::new().fg(Color::DarkGray),
+                    ),
                 ])
             }))
             .collect();
@@ -521,7 +526,9 @@ impl Dash {
             .rev()
             .take(n)
             .rev()
-            .map(|(t, m)| Line::from(vec![Span::styled(format!("{t} "), Style::new().fg(Color::DarkGray)), Span::raw(m.clone())]))
+            .map(|(t, m)| {
+                Line::from(vec![Span::styled(format!("{t} "), Style::new().fg(Color::DarkGray)), Span::raw(m.clone())])
+            })
             .collect();
         f.render_widget(Paragraph::new(ev).block(Block::bordered().title(" Activity ")), events);
 
@@ -539,10 +546,9 @@ impl Dash {
                 Line::styled(format!(" Cancel #{id} and its sub-tasks? (y / n)"), Style::new().fg(Color::Red))
             }
             Mode::Normal => match &self.flash {
-                Some((m, ok, at)) if at.elapsed() < Duration::from_secs(4) => Line::styled(
-                    format!(" {m}"),
-                    Style::new().fg(if *ok { Color::Green } else { Color::Red }),
-                ),
+                Some((m, ok, at)) if at.elapsed() < Duration::from_secs(4) => {
+                    Line::styled(format!(" {m}"), Style::new().fg(if *ok { Color::Green } else { Color::Red }))
+                }
                 _ => Line::from(
                     [
                         key("↑↓", "task"),
@@ -585,9 +591,17 @@ mod tests {
             "events": [["11:02:03", "▶ run 3: dev on #2 \"Landing page\""]]
         })).unwrap();
         let mut d = Dash {
-            socket: PathBuf::new(), snap, error: None, rows: vec![], list: ListState::default(),
-            detail: "#1 Launch v1\nstatus: waiting".into(), scroll: 0, mode: Mode::Normal,
-            flash: None, show_closed: true, dirty: false,
+            socket: PathBuf::new(),
+            snap,
+            error: None,
+            rows: vec![],
+            list: ListState::default(),
+            detail: "#1 Launch v1\nstatus: waiting".into(),
+            scroll: 0,
+            mode: Mode::Normal,
+            flash: None,
+            show_closed: true,
+            dirty: false,
         };
         d.rows = d.snap.tasks.iter().map(|t| (t.parent_id.is_some() as usize, t.clone())).collect();
         d.list.select(Some(1));

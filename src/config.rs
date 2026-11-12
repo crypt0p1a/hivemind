@@ -142,11 +142,7 @@ pub struct CollabConfig {
 
 impl Default for CollabConfig {
     fn default() -> Self {
-        CollabConfig {
-            max_questions_per_pair: d_pair(),
-            max_questions_per_tree: d_tree(),
-            recruiters: d_recruiters(),
-        }
+        CollabConfig { max_questions_per_pair: d_pair(), max_questions_per_tree: d_tree(), recruiters: d_recruiters() }
     }
 }
 
@@ -166,9 +162,7 @@ pub struct SlackConfig {
 }
 
 fn secret(v: &Option<String>, env: &str) -> Option<String> {
-    v.clone()
-        .filter(|t| !t.trim().is_empty())
-        .or_else(|| std::env::var(env).ok().filter(|t| !t.trim().is_empty()))
+    v.clone().filter(|t| !t.trim().is_empty()).or_else(|| std::env::var(env).ok().filter(|t| !t.trim().is_empty()))
 }
 
 impl SlackConfig {

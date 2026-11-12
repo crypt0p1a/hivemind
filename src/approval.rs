@@ -3,8 +3,8 @@
 //! dashboard) and answer allow / deny. "Always" adds an allow rule to the agent.
 
 use crate::daemon::App;
-use crate::util::trunc;
 use crate::notify;
+use crate::util::trunc;
 use anyhow::{anyhow, bail, Result};
 use serde_json::{json, Value};
 use std::sync::atomic::Ordering;

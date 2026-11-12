@@ -20,11 +20,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 fn words(s: &str) -> HashSet<String> {
-    s.to_lowercase()
-        .split(|c: char| !c.is_alphanumeric())
-        .filter(|w| w.chars().count() > 2)
-        .map(String::from)
-        .collect()
+    s.to_lowercase().split(|c: char| !c.is_alphanumeric()).filter(|w| w.chars().count() > 2).map(String::from).collect()
 }
 
 /// Jaccard similarity of the significant words.
@@ -155,10 +151,7 @@ fn str_list(v: &Value) -> Vec<String> {
 
 pub async fn propose_agent(app: &Arc<App>, agent: &str, t: &Task, args: &Value) -> Result<String> {
     if !app.company.cfg.collaboration.recruiters.iter().any(|r| r == agent) {
-        bail!(
-            "only {} can propose a hire: ask them (ask_agent)",
-            app.company.cfg.collaboration.recruiters.join(", ")
-        );
+        bail!("only {} can propose a hire: ask them (ask_agent)", app.company.cfg.collaboration.recruiters.join(", "));
     }
     if t.kind == "question" {
         bail!("no hiring from an answer to a question");
@@ -194,7 +187,11 @@ pub async fn propose_agent(app: &Arc<App>, agent: &str, t: &Task, args: &Value) 
 pub async fn decide_proposal(app: &Arc<App>, id: i64, accept: bool, by: &str, note: Option<&str>) -> Result<String> {
     let p = app.db.proposal(id)?.ok_or_else(|| anyhow!("proposal #{id} not found"))?;
     if p.status != "pending" {
-        bail!("proposal #{id} already handled ({}{})", p.status, p.decided_by.map(|b| format!(" by {b}")).unwrap_or_default());
+        bail!(
+            "proposal #{id} already handled ({}{})",
+            p.status,
+            p.decided_by.map(|b| format!(" by {b}")).unwrap_or_default()
+        );
     }
     let spec: AgentSpec = serde_json::from_str(&p.spec)?;
     let (status, verdict, inbox) = if accept {
@@ -265,7 +262,12 @@ mod tests {
 
     #[test]
     fn similar() {
-        assert!(similarity("Which database should we use for the project?", "Which database should we use for this project") > 0.7);
+        assert!(
+            similarity(
+                "Which database should we use for the project?",
+                "Which database should we use for this project"
+            ) > 0.7
+        );
         assert!(similarity("Which database should we use?", "What is the marketing budget for the launch?") < 0.3);
     }
 }

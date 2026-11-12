@@ -82,7 +82,13 @@ async fn slack_api(app: &App, method: &str, body: Value) -> Result<Value> {
 }
 
 /// `mention`: Slack user id pinged in front of the (escaped) text.
-async fn post(app: &App, thread_ts: Option<&str>, text: &str, broadcast: bool, mention: Option<&str>) -> Result<String> {
+async fn post(
+    app: &App,
+    thread_ts: Option<&str>,
+    text: &str,
+    broadcast: bool,
+    mention: Option<&str>,
+) -> Result<String> {
     let slack = app.company.cfg.slack.as_ref().ok_or_else(|| anyhow!("slack not configured"))?;
     let mut text = trunc(text, 3500);
     if text.ends_with('…') {
@@ -111,7 +117,10 @@ async fn ensure_thread(app: &App, task_id: i64) -> Result<String> {
     let ts = post(
         app,
         None,
-        &format!("📋 #{} → {}: {}\n_Reply in this thread to talk to the team about this task._", t.id, t.assignee, t.title),
+        &format!(
+            "📋 #{} → {}: {}\n_Reply in this thread to talk to the team about this task._",
+            t.id, t.assignee, t.title
+        ),
         false,
         None,
     )
@@ -141,7 +150,15 @@ pub async fn approval_request(app: &App, p: &Pending) -> Option<String> {
     let text = format!("🔐 {} wants to use {} (task #{}, approval #{})", p.agent, p.summary, p.task_id, p.id);
     if app.company.cfg.notify.macos {
         let _ = tokio::process::Command::new("osascript")
-            .args(["-e", "on run argv", "-e", "display notification (item 1 of argv) with title \"Hive — approval\"", "-e", "end run", &trunc(&text, 240)])
+            .args([
+                "-e",
+                "on run argv",
+                "-e",
+                "display notification (item 1 of argv) with title \"Hive — approval\"",
+                "-e",
+                "end run",
+                &trunc(&text, 240),
+            ])
             .status()
             .await;
     }
@@ -219,7 +236,15 @@ pub async fn proposal_request(app: &App, p: &crate::db::Proposal, spec: &crate::
     app.log(&format!("🔔 {}", text.lines().next().unwrap_or("")));
     if app.company.cfg.notify.macos {
         let _ = tokio::process::Command::new("osascript")
-            .args(["-e", "on run argv", "-e", "display notification (item 1 of argv) with title \"Hive — hire\"", "-e", "end run", &trunc(&text, 240)])
+            .args([
+                "-e",
+                "on run argv",
+                "-e",
+                "display notification (item 1 of argv) with title \"Hive — hire\"",
+                "-e",
+                "end run",
+                &trunc(&text, 240),
+            ])
             .status()
             .await;
     }
@@ -253,7 +278,8 @@ pub async fn proposal_request(app: &App, p: &crate::db::Proposal, spec: &crate::
 
 pub async fn proposal_done(app: &App, p: &crate::db::Proposal, spec: &crate::agents::AgentSpec, verdict: &str) {
     let (Some(slack), Some(ts)) = (&app.company.cfg.slack, &p.slack_ts) else { return };
-    let text = format!("🧑‍💼 {} proposed to hire {} ({}) — proposal #{} {verdict}", p.proposed_by, spec.name, spec.title, p.id);
+    let text =
+        format!("🧑‍💼 {} proposed to hire {} ({}) — proposal #{} {verdict}", p.proposed_by, spec.name, spec.title, p.id);
     let res = slack_api(
         app,
         "chat.update",
@@ -287,7 +313,8 @@ async fn on_interactive(app: &Arc<App>, payload: &Value) -> Result<()> {
                 },
             };
             let slack = app.company.cfg.slack.as_ref().unwrap();
-            slack_api(app, "chat.postEphemeral", json!({"channel": slack.channel, "user": user_id, "text": msg})).await?;
+            slack_api(app, "chat.postEphemeral", json!({"channel": slack.channel, "user": user_id, "text": msg}))
+                .await?;
             continue;
         }
         let decision = match a["action_id"].as_str() {
@@ -454,20 +481,48 @@ fn is_ack(text: &str) -> bool {
     let t = t.trim();
     const ACKS: &[&str] = &[
         // English
-        "", "ok", "okay", "thanks", "thank you", "thanks a lot", "thx", "ty", "great", "nice", "cool", "perfect",
-        "awesome", "excellent", "good job", "well done", "ok thanks", "great thanks", "perfect thanks", "noted",
+        "",
+        "ok",
+        "okay",
+        "thanks",
+        "thank you",
+        "thanks a lot",
+        "thx",
+        "ty",
+        "great",
+        "nice",
+        "cool",
+        "perfect",
+        "awesome",
+        "excellent",
+        "good job",
+        "well done",
+        "ok thanks",
+        "great thanks",
+        "perfect thanks",
+        "noted",
         // French
-        "merci", "merci beaucoup", "merci bien", "top", "parfait", "super", "génial", "genial", "nickel", "bravo",
-        "impeccable", "parfait merci", "top merci", "super merci", "ok merci",
+        "merci",
+        "merci beaucoup",
+        "merci bien",
+        "top",
+        "parfait",
+        "super",
+        "génial",
+        "genial",
+        "nickel",
+        "bravo",
+        "impeccable",
+        "parfait merci",
+        "top merci",
+        "super merci",
+        "ok merci",
     ];
     ACKS.contains(&t)
 }
 
 async fn in_thread(app: &Arc<App>, user: &User, thread: &str, text: &str) -> Result<String> {
-    let root = app
-        .db
-        .task_by_thread(thread)?
-        .ok_or_else(|| anyhow!("this thread is not linked to any task"))?;
+    let root = app.db.task_by_thread(thread)?.ok_or_else(|| anyhow!("this thread is not linked to any task"))?;
     let requester = requester_of(app, root)?;
     let act = || access::check(user, Action::ActOnTask { requester: requester.as_deref() });
     let req = match text.to_lowercase().as_str() {

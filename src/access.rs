@@ -57,9 +57,13 @@ impl User {
 
 /// Reading (status, tasks, show, usage) is allowed to every known user.
 pub enum Action<'a> {
-    CreateTask { to: &'a str },
+    CreateTask {
+        to: &'a str,
+    },
     /// reply / cancel / retry on a task whose root was requested by `requester`
-    ActOnTask { requester: Option<&'a str> },
+    ActOnTask {
+        requester: Option<&'a str>,
+    },
     ManageUsers,
 }
 

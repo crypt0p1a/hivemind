@@ -152,9 +152,8 @@ pub fn text(app: &App) -> Result<String> {
     for w in &rows {
         let provider = w.provider.as_str();
         if provider != last {
-            let paused = paused_until(app, provider)?
-                .map(|u| format!("  ⏸ paused until {}", fmt_time(u)))
-                .unwrap_or_default();
+            let paused =
+                paused_until(app, provider)?.map(|u| format!("  ⏸ paused until {}", fmt_time(u))).unwrap_or_default();
             s += &format!("{provider}{paused}\n");
             last = provider.to_string();
         }
@@ -193,21 +192,18 @@ pub async fn poll_loop(app: Arc<App>) {
                 continue;
             }
             last[i] = now;
-            let out = tokio::process::Command::new("sh")
-                .args(["-c", cmd])
-                .current_dir(&app.company.root)
-                .output()
-                .await;
+            let out =
+                tokio::process::Command::new("sh").args(["-c", cmd]).current_dir(&app.company.root).output().await;
             let res: Result<()> = match out {
-                Ok(o) if o.status.success() => serde_json::from_slice::<Value>(&o.stdout)
-                    .map_err(anyhow::Error::from)
-                    .and_then(|mut v| {
+                Ok(o) if o.status.success() => {
+                    serde_json::from_slice::<Value>(&o.stdout).map_err(anyhow::Error::from).and_then(|mut v| {
                         if v.get("provider").is_none() {
                             v["provider"] = Value::String(p.name.clone());
                         }
                         let r: Report = serde_json::from_value(v)?;
                         record(&app, &r, "command")
-                    }),
+                    })
+                }
                 Ok(o) => Err(anyhow::anyhow!("code {}: {}", o.status, String::from_utf8_lossy(&o.stderr).trim())),
                 Err(e) => Err(e.into()),
             };

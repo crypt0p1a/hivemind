@@ -76,7 +76,9 @@ pub fn normalize_rule(raw: &str) -> Result<String> {
         None => true,
     };
     if !ok_name || !ok_args {
-        bail!("invalid rule '{raw}' (e.g. Read, Bash(npm test), Bash(git *), Edit(src/**), WebFetch(domain:github.com))");
+        bail!(
+            "invalid rule '{raw}' (e.g. Read, Bash(npm test), Bash(git *), Edit(src/**), WebFetch(domain:github.com))"
+        );
     }
     Ok(r.to_string())
 }
@@ -178,7 +180,8 @@ pub fn command(app: &App, args: &str) -> Result<String> {
         }
         "remove" | "rm" => {
             let r = normalize_rule(rest)?;
-            let n = app.db.remove_rule("agent", agent, "allow", &r)? + app.db.remove_rule("agent", agent, "deny", &r)?;
+            let n =
+                app.db.remove_rule("agent", agent, "allow", &r)? + app.db.remove_rule("agent", agent, "deny", &r)?;
             if n == 0 {
                 bail!("{agent} has no own rule '{r}' (it may come from a profile)");
             }

@@ -61,7 +61,10 @@ fn pretty(v: &Value) {
     match v["type"].as_str().unwrap_or("") {
         "hive" => println!(
             "▶ run {} — {} on task #{}\n{}\n",
-            v["run"], v["agent"].as_str().unwrap_or("?"), v["task"], v["prompt"].as_str().unwrap_or("")
+            v["run"],
+            v["agent"].as_str().unwrap_or("?"),
+            v["task"],
+            v["prompt"].as_str().unwrap_or("")
         ),
         "system" if v["subtype"] == "init" => println!(
             "· session {} · model {}",
@@ -81,11 +84,9 @@ fn pretty(v: &Value) {
             for c in v["message"]["content"].as_array().into_iter().flatten() {
                 if c["type"] == "tool_result" {
                     let content = match &c["content"] {
-                        Value::Array(parts) => parts
-                            .iter()
-                            .filter_map(|p| p["text"].as_str())
-                            .collect::<Vec<_>>()
-                            .join(" "),
+                        Value::Array(parts) => {
+                            parts.iter().filter_map(|p| p["text"].as_str()).collect::<Vec<_>>().join(" ")
+                        }
                         other => short(other, 1000),
                     };
                     println!("  ← {}", trunc(&content.replace('\n', " ⏎ "), 200));

@@ -86,7 +86,12 @@ pub async fn run(company: Company) -> Result<()> {
     if let Some(slack) = &app.company.cfg.slack {
         for id in &slack.allowed_users {
             if app.db.user(id)?.is_none() {
-                app.db.set_user(&access::User { slack_id: id.clone(), name: None, role: access::Role::Admin, agents: vec![] })?;
+                app.db.set_user(&access::User {
+                    slack_id: id.clone(),
+                    name: None,
+                    role: access::Role::Admin,
+                    agents: vec![],
+                })?;
             }
         }
     }
@@ -212,10 +217,7 @@ fn schedule(app: &Arc<App>) -> Result<()> {
         let run_id = app.db.create_run(&agent, task_id)?;
         let items = app.db.take_inbox(&agent, task_id, run_id)?;
         let (tx, rx) = oneshot::channel();
-        app.running
-            .lock()
-            .unwrap()
-            .insert(run_id, RunHandle { agent: agent.clone(), task_id, kill: Some(tx) });
+        app.running.lock().unwrap().insert(run_id, RunHandle { agent: agent.clone(), task_id, kill: Some(tx) });
         app.log(&format!("▶ run {run_id}: {agent} on #{task_id} \"{}\"", trunc(&task.title, 60)));
         tokio::spawn(runner::run(app.clone(), run_id, acfg, task, items, rx));
     }
@@ -318,7 +320,9 @@ pub async fn handle(app: &Arc<App>, req: Request) -> Result<String> {
         Request::AgentReload => agents::reload(app),
         Request::Tools { args } => tools::command(app, &args),
         Request::Approvals => Ok(approval::list_text(app)),
-        Request::Decide { id, decision } => approval::decide(app, id, approval::Decision::parse(&decision)?, "owner (CLI)"),
+        Request::Decide { id, decision } => {
+            approval::decide(app, id, approval::Decision::parse(&decision)?, "owner (CLI)")
+        }
         Request::Approve { agent, task_id, tool_name, input } => {
             approval::request(app, &agent, task_id, &tool_name, input).await
         }
@@ -714,10 +718,7 @@ async fn tool(app: &Arc<App>, agent: &str, task_id: i64, name: &str, args: &Valu
             let to = arg(args, "to")?;
             let title = arg(args, "title")?;
             let description = arg(args, "description")?;
-            let target = app
-                .company
-                .agent(to)
-                .ok_or_else(|| anyhow!("unknown agent '{to}' — use list_agents"))?;
+            let target = app.company.agent(to).ok_or_else(|| anyhow!("unknown agent '{to}' — use list_agents"))?;
             if to == agent {
                 bail!("you cannot delegate a task to yourself: do it directly");
             }
@@ -750,12 +751,8 @@ async fn tool(app: &Arc<App>, agent: &str, task_id: i64, name: &str, args: &Valu
         "ask_owner" => {
             let q = arg(args, "question")?;
             app.db.set_status(task_id, "blocked", None)?;
-            notify::owner(
-                app,
-                task_id,
-                &format!("❓ #{task_id} — {agent} asks:\n{q}\n\n→ hive reply {task_id} \"…\""),
-            )
-            .await;
+            notify::owner(app, task_id, &format!("❓ #{task_id} — {agent} asks:\n{q}\n\n→ hive reply {task_id} \"…\""))
+                .await;
             Ok("Question sent to the owner. End your turn now: you will be resumed with their answer.".into())
         }
         "set_status" => {
