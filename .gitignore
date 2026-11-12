@@ -1,3 +1,4 @@
 target/
 .env
 company/
+__pycache__/

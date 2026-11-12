@@ -191,9 +191,11 @@ jobs:
     needs: [test]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
+    # job permissions replace the workflow ones: contents is needed to read the commit
     permissions:
       actions: read
       checks: write
+      contents: read
       pull-requests: write
     steps:
       - uses: actions/download-artifact@v4
