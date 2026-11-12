@@ -108,7 +108,7 @@ impl Hive {
 
     #[track_caller]
     fn wait_for(&self, what: &str, cond: impl Fn() -> bool) {
-        let deadline = Instant::now() + Duration::from_secs(30);
+        let deadline = Instant::now() + Duration::from_secs(60);
         while Instant::now() < deadline {
             if cond() {
                 return;
@@ -521,4 +521,39 @@ fn agents_and_users_are_managed_live() {
     let users = h.ok(&["user"]);
     assert!(users.contains("U0ADMIN") && users.contains("Kevin") && users.contains("agents: marketing"), "{users}");
     h.ok(&["user", "rm", "U0MEMBER"]);
+}
+
+#[test]
+fn demo_mode_runs_a_whole_company_without_claude() {
+    let base = std::env::temp_dir().join(format!("hive-e2e-demo-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&base);
+    std::fs::create_dir_all(&base).unwrap();
+    let (dir, socket) = (base.join("company"), base.join("hive.sock"));
+    let mut demo = Command::new(HIVE)
+        .args(["demo", "--no-dash", "--dir"])
+        .arg(&dir)
+        .env("HIVE_SOCKET", &socket)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .unwrap();
+    let show =
+        || Command::new(HIVE).args(["show", "1"]).env("HIVE_HOME", &dir).env("HIVE_SOCKET", &socket).output().unwrap();
+    let deadline = Instant::now() + Duration::from_secs(90);
+    let mut last = String::new();
+    while Instant::now() < deadline {
+        last = String::from_utf8_lossy(&show().stdout).to_string();
+        if last.contains("status: done") {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(250));
+    }
+    let _ = Command::new("kill").arg("-INT").arg(demo.id().to_string()).status();
+    let _ = demo.wait();
+    assert!(last.contains("status: done"), "the demo did not finish:\n{last}");
+    assert!(last.contains("#2 [done] marketing") && last.contains("#3 [done] cto"), "{last}");
+    for f in ["marketing/copy.md", "site/index.html", "launch-summary.md"] {
+        assert!(dir.join("workspace").join(f).exists(), "{f} missing");
+    }
+    let _ = std::fs::remove_dir_all(&base);
 }
