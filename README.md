@@ -1,5 +1,7 @@
 # hive
 
+[![CI](https://github.com/nonopn/hivemind/actions/workflows/ci.yml/badge.svg)](https://github.com/nonopn/hivemind/actions/workflows/ci.yml)
+
 A team of Claude Code agents (CEO, CTO, developers, marketing…) that split the work according to their
 capabilities, ask each other questions and report back to you. Each agent is a `claude -p` process: it runs
 on your Claude subscription.
@@ -318,9 +320,28 @@ allowed_users = ["U0123456789"]
 
 ```sh
 cargo build                    # target/debug/hive
-cargo test
+cargo nextest run              # or cargo test
 cargo clippy --all-targets
+cargo fmt --all
+git config core.hooksPath .githooks   # pre-commit secret scan (gitleaks)
 ```
+
+**Tests.** Unit tests live next to the code. `tests/e2e.rs` runs the real binary (daemon, CLI, MCP
+bridge) against `tests/fixtures/fake_claude.py`, a scripted stand-in for `claude -p`: each agent follows a
+plan of tool calls (`delegate_task`, `ask_agent`, `propose_agent`, `approve`…), and the tests check the
+resulting tasks, prompts, sessions (`--resume`, `--fork-session`) and tool flags. They need `python3` and
+take about two seconds. No Claude subscription is used.
+
+**CI** (`.github/workflows/ci.yml`), on every push and pull request:
+
+| Job | Checks |
+|---|---|
+| Secrets | gitleaks (history and working tree) and trufflehog; no `.env`, `company/` or database committed |
+| Format and clippy | `cargo fmt --check`, `cargo clippy --all-targets` with warnings as errors |
+| Tests | unit and end-to-end tests on Linux x86-64, Linux arm64 and macOS, JUnit report |
+| Coverage | llvm-cov over the unit and end-to-end tests, minimum 55% of the lines, HTML report |
+| Docker | image built for amd64 and arm64, then `init`, daemon and a task run inside the container |
+| Audit | `cargo audit` on the dependencies (also weekly) |
 
 `docs/hive-features.pdf` is the feature guide; regenerate it with `python3 docs/make_pdf.py docs/hive-features.pdf`
 (needs `reportlab`; Python 3.10+, or `reportlab<4.3` on Python 3.9).
