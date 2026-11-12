@@ -1,0 +1,16 @@
+# cargo-nextest: https://nexte.st
+
+[profile.default]
+slow-timeout = { period = "60s" }
+
+[profile.ci]
+# every failure is reported, not only the first one
+fail-fast = false
+# an end-to-end test stuck on the daemon fails instead of blocking the job
+slow-timeout = { period = "60s", terminate-after = 3 }
+
+[profile.ci.junit]
+# target/nextest/ci/junit.xml, published by the CI
+path = "junit.xml"
+store-success-output = false
+store-failure-output = true
