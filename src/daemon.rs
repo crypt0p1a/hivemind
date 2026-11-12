@@ -1,6 +1,6 @@
 //! The orchestrator: owns the DB, schedules agent runs, serves the CLI / MCP bridge over a Unix socket.
 
-use crate::config::{log_path, socket_path, Company};
+use crate::config::{socket_path, Company};
 use crate::db::{Db, Task};
 use crate::ipc::{Request, Response};
 use crate::util::trunc;
@@ -541,6 +541,15 @@ fn agent_states(app: &App) -> Result<HashMap<String, String>> {
     for h in app.running.lock().unwrap().values() {
         running.entry(h.agent.clone()).or_default().push(h.task_id);
     }
+    // Agents with messages that the scheduler will deliver now (not only sub-task results waiting
+    // for the other sub-tasks of the same task).
+    let mut ready: HashSet<String> = HashSet::new();
+    for (agent, task_id) in app.db.pending_groups()? {
+        let items = app.db.pending(&agent, task_id)?;
+        if app.db.open_children(task_id)? == 0 || !items.iter().all(|i| i.kind.starts_with("child_")) {
+            ready.insert(agent);
+        }
+    }
     let pending = app.db.pending_counts()?;
     let notes = app.db.notes()?;
     let waiting = approval::waiting_agents(app);
@@ -551,11 +560,13 @@ fn agent_states(app: &App) -> Result<HashMap<String, String>> {
         } else if let Some(ts) = running.get(&a.name) {
             let ts: Vec<String> = ts.iter().map(|t| format!("#{t}")).collect();
             format!("busy ({})", ts.join(", "))
-        } else if pending.get(&a.name).copied().unwrap_or(0) > 0 {
+        } else if ready.contains(&a.name) {
             match usage::paused_until(app, &a.provider)? {
                 Some(u) => format!("paused (quota → {})", usage::fmt_time(u)),
                 None => "queued".into(),
             }
+        } else if pending.get(&a.name).copied().unwrap_or(0) > 0 {
+            "waiting on sub-tasks".into()
         } else if notes.get(&a.name).is_some_and(|(av, _)| av == "busy") {
             "busy (declared)".into()
         } else {
@@ -661,14 +672,14 @@ fn show_text(app: &App, id: i64) -> Result<String> {
         s += "\n\n## Runs";
         for r in runs {
             s += &format!(
-                "\nrun {} · {} · {} · {} → {}{} · {}",
+                "\nrun {} · {} · {} · {} → {}{} · hive logs {}",
                 r.id,
                 r.agent,
                 r.status,
                 r.started_at,
                 r.ended_at.as_deref().unwrap_or("…"),
                 r.cost_usd.map(|c| format!(" · ${c:.3}")).unwrap_or_default(),
-                log_path(&app.company.root, r.id, &r.agent).display()
+                r.id
             );
         }
     }
