@@ -1,0 +1,18 @@
+services:
+  hive:
+    build:
+      context: .
+      args:
+        UID: ${HIVE_UID:-1000}
+    container_name: hive
+    restart: unless-stopped
+    init: true            # forwards SIGTERM to the daemon and reaps the claude processes
+    stop_grace_period: 15s
+    # CLAUDE_CODE_OAUTH_TOKEN (claude setup-token), HIVE_SLACK_BOT_TOKEN, HIVE_SLACK_APP_TOKEN
+    env_file: .env
+    volumes:
+      - ./company:/company                  # hive.toml, agents/, workspace/, .hive/ (database, logs)
+      - claude-home:/home/hive/.claude      # claude sessions: needed for the agents' --resume
+
+volumes:
+  claude-home:
