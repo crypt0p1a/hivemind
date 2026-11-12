@@ -198,6 +198,14 @@ body += B([
 
 # ---------------------------------------------------------------- 2
 body.append(h1("2", "Installation and start"))
+body.append(P("Try it: demo mode", "h2"))
+body += code("""
+cargo install --path .
+hive demo          # a simulated company at work in the dashboard, no Claude subscription needed
+""")
+body.append(P("The demo agents speak the same protocol as claude -p and act through the real hive tools: the CEO "
+              "splits a launch between marketing and the CTO, the CTO delegates the page to the developer, who asks "
+              "the CTO a question, and real files land in the workspace."))
 body.append(P("Locally", "h2"))
 body += code("""
 cargo install --path .                      # from the hive repository
@@ -311,7 +319,8 @@ body += table([
     ["Command", "Purpose"],
     ["hive init [dir]", "Create a company (hive.toml, agents/, workspace/)."],
     ["hive daemon", "Run the orchestrator."],
-    ["hive dash", "Live dashboard (section 7)."],
+    ["hive dash [--svg file]", "Live dashboard (section 7), or one frame as an SVG image."],
+    ["hive demo [--dir d] [--no-dash]", "A simulated company, no Claude subscription needed."],
     ["hive task [--to agent] \"…\"", "New task (for default_agent by default)."],
     ["hive status", "Agents: available, busy (#tasks), queued, paused (quota), waiting for approval. Plus usage."],
     ["hive tasks [-a]", "Task tree (with -a: closed tasks included)."],

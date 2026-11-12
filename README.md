@@ -6,6 +6,8 @@ A team of Claude Code agents (CEO, CTO, developers, marketing…) that split the
 capabilities, ask each other questions and report back to you. Each agent is a `claude -p` process: it runs
 on your Claude subscription.
 
+![hive dash: a demo company at work](docs/dashboard.svg)
+
 ```
 you ── CLI / dashboard / Slack ──▶ hive daemon ──spawn──▶ claude -p (ceo, task #1)
                                      ▲  SQLite                 │
@@ -13,9 +15,23 @@ you ── CLI / dashboard / Slack ──▶ hive daemon ──spawn──▶ cl
                                                             complete_task, ask_owner, list_agents…)
 ```
 
-- [Quick start](#quick-start) · [Docker](#docker) · [Commands](#commands) · [How it works](#how-it-works)
+- [Demo](#demo) · [Quick start](#quick-start) · [Docker](#docker) · [Commands](#commands) · [How it works](#how-it-works)
 - [Agents](#agents) · [Collaboration](#collaboration-between-agents) · [Agent tools](#agent-tools)
 - [Usage & quotas](#provider-usage-api) · [Slack](#slack) · [Rights](#rights) · [Development](#development)
+
+## Demo
+
+```sh
+cargo install --path .
+hive demo
+```
+
+A simulated company (no Claude subscription, nothing to configure) runs a full launch in the dashboard:
+the CEO splits it between marketing and the CTO, the CTO delegates the page to the developer, who asks the
+CTO which stack to use, and everyone writes real files in the workspace. The agents are played by
+`hive demo-agent`, which speaks the same protocol as `claude -p` and acts through the real hive tools.
+Quit with `q`; the company stays in `<tmp>/hive-demo` (`hive demo --dir <dir>` to choose, `--no-dash` to run
+the daemon in the foreground). `scripts/screenshot.sh` regenerates the screenshot above.
 
 ## Quick start
 
@@ -60,7 +76,8 @@ docker compose exec hive hive dash
 |---|---|
 | `hive init [dir]` | create a company |
 | `hive daemon` | run the orchestrator |
-| `hive dash` | live dashboard: agents, usage, task tree, detail, activity |
+| `hive demo [--dir d] [--no-dash]` | run a simulated company, no Claude subscription needed |
+| `hive dash [--svg file --size 132x38]` | live dashboard: agents, usage, task tree, detail, activity (or one SVG frame) |
 | `hive task [--to agent] "…"` | new task (for `default_agent` by default) |
 | `hive status` | agents: available / busy (#tasks) / queued / paused (quota) / waiting for approval |
 | `hive tasks [-a]` | task tree (`-a`: include closed tasks) |
@@ -363,5 +380,6 @@ Source layout:
 | `collab.rs` | `ask_agent` with loop control, hire proposals |
 | `agents.rs` | agents created / removed / reloaded live |
 | `usage.rs` | provider usage API and quota pauses |
-| `dash.rs` | ratatui dashboard |
+| `dash.rs` | ratatui dashboard and its SVG export |
+| `demo.rs` | demo mode: simulated company and agents |
 | `logs.rs` | readable run logs |
