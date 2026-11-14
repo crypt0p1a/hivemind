@@ -1,6 +1,6 @@
-# hive
+# hivemind
 
-[![CI](https://github.com/nonopn/hivemind/actions/workflows/ci.yml/badge.svg)](https://github.com/nonopn/hivemind/actions/workflows/ci.yml)
+[![CI](https://github.com/crypt0p1a/hivemind/actions/workflows/ci.yml/badge.svg)](https://github.com/crypt0p1a/hivemind/actions/workflows/ci.yml)
 
 A team of Claude Code agents (CEO, CTO, developers, marketing…) that split the work according to their
 capabilities, ask each other questions and report back to you. Each agent is a `claude -p` process: it runs
